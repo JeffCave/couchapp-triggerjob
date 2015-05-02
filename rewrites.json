@@ -1,0 +1,26 @@
+ [
+      {
+           "to": "_update/trigger/:key",
+           "from": "/trigger/:key"
+       },
+       {
+           "to": "../../_changes",
+           "from": "/follow/_changes",
+           "query": {
+               "filter": "triggerjob/triggerjob",
+               "include_docs": "true"
+           }
+       },
+       {
+           "to": "../../",
+           "from": "/follow/"
+       },
+       {
+           "to": "../../../_config/*",
+           "from": "/_config/*"
+       },
+       {
+           "to": "../../_design/app/_rewrite/*",
+           "from": "*"
+       }       
+   ]
