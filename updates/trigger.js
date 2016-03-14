@@ -7,10 +7,11 @@ function(doc, req) {
         v.assert(v.isAdmin(),"You must be admin",401);
         v.assert(doc, "Doc not found", 404);
         v.assert(params.action, "Param \"action\" not specified",400);
-        v.assert(params.trkey, "Params \"trkey\" not specified",400);
-        v.assert(params.action=="create" || (doc.triggers&&doc.triggers[params.trkey]),"Trigger key \""+params.trkey+"\" not found in doc.triggers", 400);
-        var trkey = params.trkey, 
-            tr = doc.triggers[params.trkey];
+        var trkey = params.trkey||params.triggerid||false;
+        v.assert(trkey, "Params \"trkey\" not specified",400);
+
+        var tr = doc.triggers && typeof doc.triggers[trkey]!="undefined" ? doc.triggers[trkey] : false;
+        v.assert(tr,"Trigger key \""+trkey+"\" not found in doc.triggers", 400);
 
         switch(params.action){
             case "delay":
@@ -28,8 +29,10 @@ function(doc, req) {
 
                 // We keep params needed(read) by done action
                 if (tr.error) doc.triggers[trkey].error = tr.error;
-                if (tr.success) doc.triggers[trkey].error = tr.success;
+                if (tr.success) doc.triggers[trkey].success = tr.success;
                 if (tr.storepositive) doc.triggers[trkey].storepositive = tr.storepositive;
+                if (tr.type) doc.triggers[trkey].type = tr.type;
+                if (tr.start) doc.triggers[trkey].start = tr.start;
 
                 msg = "QUEUED trigger \""+trkey+"\"";
                 break;
@@ -37,43 +40,18 @@ function(doc, req) {
             case "done":
                 // Moving trigger from triggers to triggered
                 tr.done = v.now();
-                tr.code = params.code;
-                var ok = typeof tr.code == "number" && tr.code>=200 && tr.code<300;
+                tr.code = params.code||params.ok;
+                var ok = typeof tr.code=="boolean"?tr.code:(typeof tr.code == "number" && tr.code>=200 && tr.code<300);
 
-                // parse response body as JSON if possible
-                try { params.out = JSON.parse(params.out); }catch(ex){}
-
-                // false response body are always stored
-                // positive reponse body are stored only if allowed by storepositive
-                if (params.out && (!ok || tr.storepositive)) 
-                    tr.out = params.out;
-
-                // preparing chained success/error triggers if any
-                if (!ok && typeof tr.error=='object') {
-                    if (params.out) {
-                        tr.error.params = tr.error.params?tr.error.params:{};
-                        tr.error.params.reason = params.out;
-                    }
-                    doc.triggers=doc.triggers?doc.triggers:{};
-                    doc.triggers[trkey] = tr.error;
-
-                } else if (ok && typeof tr.success=='object') {
-                    doc.triggers=doc.triggers?doc.triggers:{};
-                    doc.triggers[trkey] = tr.success;
+                var triggerfn = require("lib/triggers/"+(tr.type||"http"));
+                if (typeof triggerfn =="object" && typeof triggerfn.done=="function") {
+                    doc = triggerfn.done(ok,doc,v,params,trkey,tr);
                 } else {
                     // otherwise cleaning from triggers array
                     delete doc.triggers[trkey];
                     if (Object.keys(doc.triggers).length<=0) delete doc.triggers;
                 }
-                
-                // clean before moving to triggered object
-                if (tr.success) delete tr.success;
-                if (tr.error) delete tr.error;
-                if (tr.storepositive) delete tr.storepositive;
 
-                // moving to triggered object
-                doc.triggered = doc.triggered?doc.triggered:{};
-                doc.triggered[trkey] = tr;
                 msg = "DONE trigger \""+trkey+"\"";
                 break;
 
@@ -84,6 +62,8 @@ function(doc, req) {
         return [doc,v.response({ok:true, msg:msg}),isNew?201:200];
 
     } catch(ex) {
-        return [null,"TRIGGERJOB-COUCHAPP: "+ex.toString()];
+        var err = ex.toString();
+        try {err = JSON.stringify(ex);}catch(e){};
+        return [null,"TRIGGERJOB-COUCHAPP: "+err];
     }
-}
+};

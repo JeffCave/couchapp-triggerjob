@@ -1,5 +1,5 @@
  [
-      {
+       {
            "to": "_update/trigger/:key",
            "from": "/trigger/:key"
        },
@@ -20,7 +20,7 @@
            "from": "/_config/*"
        },
        {
-           "to": "../../_design/app/_rewrite/*",
+           "to": "../../_design/site/_rewrite/*",
            "from": "*"
        }       
    ]

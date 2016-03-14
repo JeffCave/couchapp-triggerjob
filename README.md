@@ -1,4 +1,4 @@
-# couchapp-triggerjob
+# couchapp-triggerjob 
 
 CouchDB design document to be used with [couch-daemon-triggerjob](https://github.com/Smileupps/couch-daemon-triggerjob) external daemon, to add asynchronous background events to CouchDB.
 
